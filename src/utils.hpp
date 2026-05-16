@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <vector>
+#include <fstream>
 
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
@@ -25,6 +26,6 @@ struct City {
     int y;
 };
 
-std::ostream& operator<<(std::ostream& os, const City& city) {
-    return os << city.x << " " << city.y;
-}
+std::ostream& operator<<(std::ostream& os, const City& city);
+
+std::vector<City> read_input(const std::string&);
