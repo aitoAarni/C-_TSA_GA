@@ -1,0 +1,9 @@
+*.d
+
+*.o
+
+src/tsp_solver
+
+*.zip
+
+.DS_Store
