@@ -5,6 +5,17 @@
 template <typename T>
 void print_vector(std::vector<T>& vec) {
     for (const T& value : vec) {
-        std::cout << value << "\n";
+        std::cout << value;
     }
+    std::cout << "\n";
+}
+
+
+struct City {
+    int x;
+    int y;
+};
+
+std::ostream& operator<<(std::ostream& os, const City& city) {
+    return os << city.x << " " << city.y << "\n";
 }

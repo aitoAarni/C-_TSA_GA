@@ -1,6 +1,7 @@
-CPPFLAGS = -std=c++23 -Wall -Wextra -Wshadow -pedantic -march=native
+CXX = g++
+CPPFLAGS = -std=c++23 -Wall -Wextra -Wshadow -pedantic -march=native -pthread
 
-HEADERS = src/utils.hpp
+HEADERS = utils.hpp
 
 .PHONY: clean debug
 

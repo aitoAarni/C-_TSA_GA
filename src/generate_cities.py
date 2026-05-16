@@ -14,7 +14,7 @@ def generate_cities(n: int = 20):
     return list(cities)
 
 
-def save_cities_to_file(cities: list, filename: str = "./run/input.dat"):
+def save_cities_to_file(cities: list, filename: str = "../run/input.dat"):
     with open(filename, "w") as f:
         for x, y in cities:
             f.write(f"{x} {y}\n")

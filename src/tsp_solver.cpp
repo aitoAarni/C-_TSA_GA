@@ -6,7 +6,7 @@
 #include "utils.hpp"
 
 constexpr int MUTATION_RATE {5}; // in percentages
-constexpr std::string input_file {"./run/input.dat"};
+const std::string input_file {"../run/input.dat"};
 
 // TODO: City data generator
 // TODO: read data to vector, to get cities and their locations
@@ -20,10 +20,6 @@ constexpr std::string input_file {"./run/input.dat"};
 
 
 
-struct City {
-    int x;
-    int y;
-};
 
 std::vector<City> read_input(const std::string& filename) {
     std::vector<City> cities;
