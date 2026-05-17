@@ -14,5 +14,5 @@ clean:
 	rm -f tsp_solver
 
 debug: tsp_solver.cpp $(HEADERS)
-	g++ $(CPPFLAGS) -DDEBUG -g -o tsp_solver tsp_solver.cpp
+	g++ $(CPPFLAGS) -DDEBUG -g -o tsp_solver $(SOURCES)
 

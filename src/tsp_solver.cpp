@@ -6,7 +6,8 @@
 #include <numeric>
 #include <algorithm>
 #include <random>
-#include <math>
+#include <cmath>
+#include <format>
 #include "utils.hpp"
 
 constexpr int MUTATION_RATE {5}; // in percentages
@@ -43,33 +44,41 @@ std::vector<std::vector<int>> generate_population(const int city_count, const in
 
 int calc_city_distance(City& a, City& b) {
     int x = std::pow(a.x - b.x, 2);
-    int y = std::pow(y.y - b.y, 2);
-    return std::sqrt(x+y)
+    int y = std::pow(a.y - b.y, 2);
+    return std::sqrt(x+y);
 
 }
 
 int calc_route_distance(std::vector<int>& route, std::vector<City>& city_coordinates) {
+
     auto current {route.begin()};
     int distance {0};
     while (current+1 != route.end()) {
-        distance += calc_city_distance(*current, *(current + 1));
+        distance += calc_city_distance(city_coordinates[*current], city_coordinates[*(current + 1)]);
+        // std::cout << std::format("From city {} (x: {}, y: {}) to {} (x: {}, y: {}))", *current);
         current++;
     }
-    distance += calc_city_distance(*current, *route.begin());
-    return distance
+    distance += calc_city_distance(city_coordinates[*current], city_coordinates[*route.begin()]);
+    return distance;
 }
 
 
-void tsp_solver(std::vector<std::vector<int>>& population) {
-    
+void tsp_solver(std::vector<std::vector<int>>& population, std::vector<City>& city_coordinates) {
+    int answer = calc_route_distance(population[0], city_coordinates);
+    std::cout << population << city_coordinates;
+    std::cout << "ansewr is: " << answer << "\n";
 }
 
 int main() {
     auto city_locations {read_input(INPUT_FILE)};
     std::size_t n {city_locations.size()};
 
-    auto population {generate_population(n, POPULATION_COUNT)};
-    std::cout << " " << population;
+    std::vector<int> base_route(n);
+    std::iota(base_route.begin(), base_route.end(), 0);
+    std::vector<std::vector<int>> pop {base_route};
+    tsp_solver(pop, city_locations);
+    // auto population {generate_population(n, POPULATION_COUNT)};
+    // std::cout << " " << population;
 
 
     return 0;
