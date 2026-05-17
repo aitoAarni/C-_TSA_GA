@@ -11,9 +11,10 @@
 #include "utils.hpp"
 
 constexpr int MUTATION_RATE {5}; // in percentages
-constexpr int POPULATION_COUNT {5};
+constexpr int POPULATION_SIZE {10};
 constexpr int GENERATIONS {10};
-constexpr int parent_group_size {5};
+constexpr int PARENT_GROUP_SIZE {4};    // the group size from which we will seek the most fit
+                                        // parents to make a child to the new generation
 const std::string INPUT_FILE {"../run/input.dat"};
 std::vector<City> city_locations;
 // TODO: generate initial mutations (and distributed them to threads) 
@@ -69,9 +70,37 @@ void run_one_generation(std::vector<std::vector<int>>& current_generation, std::
     for (const auto& route : current_generation) {
         route_distances.push_back(calc_route_distance(route));
     }
+    auto population_size {current_generation.size()};
     std::cout << "routes:\n " << current_generation;
     std::cout << "route_distances:\n " << route_distances;
-    
+    std::vector<int> parent_pool(PARENT_GROUP_SIZE);
+    unsigned int previous_index {2'000'000'000};
+
+    // generate new generation in this loop
+    // for (int i {1}; i < population_size; i++) {
+
+        for (int j {0}; j < PARENT_GROUP_SIZE; j++) {
+            // in this loop we pick the potential parents for a child
+            unsigned long index {};
+            // make sure potential parent's are not all the same index
+            do {
+                index = {gen() % population_size};
+            } while (index == previous_index);
+            parent_pool[j] = index;
+            previous_index = index;
+        }
+
+        // here we pick the 2 fittest parents to make a child
+        std::sort(parent_pool.begin(), parent_pool.end(), [&route_distances](const int a, const int b){
+            return route_distances[a] < route_distances[b];
+        });
+        std::cout << "sorted parent pool\n " << parent_pool;
+        std::cout << "parent pool sizes in order:\n\n";
+        for (const auto& index : parent_pool) {
+            std::cout << route_distances[index] << "\n";
+        }
+        std::cout << "\n";
+    // }
 }
 
 void tsp_solver(std::vector<std::vector<int>>& current_generation) {
@@ -80,7 +109,6 @@ void tsp_solver(std::vector<std::vector<int>>& current_generation) {
     std::vector<std::vector<int>> new_generation(current_generation.size());
     run_one_generation(current_generation, new_generation, gen);
 
-    std::cout << "new generation\n " << new_generation;
     // for (int i {0}; i < GENERATIONS; i++) {
 
     // }
@@ -93,9 +121,9 @@ int main() {
     std::vector<int> base_route(n);
     std::iota(base_route.begin(), base_route.end(), 0);
     std::vector<std::vector<int>> pop {base_route};
-    auto population = generate_population(n, 3);
+    auto population = generate_population(n, POPULATION_SIZE);
     tsp_solver(population);
-    // auto population {generate_population(n, POPULATION_COUNT)};
+    // auto population {generate_population(n, POPULATION_SIZE)};
     // std::cout << " " << population;
 
 
