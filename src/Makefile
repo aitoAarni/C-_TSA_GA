@@ -15,4 +15,3 @@ clean:
 
 debug: tsp_solver.cpp $(HEADERS)
 	g++ $(CPPFLAGS) -DDEBUG -g -o tsp_solver $(SOURCES)
-
