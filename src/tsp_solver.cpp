@@ -174,8 +174,11 @@ void run_one_generation(std::vector<std::vector<int>> &current_generation, std::
     {
         std::cout << route_distances[index] << "\n";
     }
+    auto child = create_child(current_generation[parent_1], current_generation[parent_2], gen);
+    std::cout << "child: " << child;
+    std::cout << "dist: " << calc_route_distance(child); 
     std::cout << "\n";
-    // }
+
 }
 
 void tsp_solver(std::vector<std::vector<int>> &current_generation)
@@ -200,14 +203,11 @@ int main()
     std::iota(base_route.begin(), base_route.end(), 0);
     std::vector<std::vector<int>> pop{base_route};
     auto population = generate_population(n, POPULATION_SIZE);
-    // tsp_solver(population);
-    // auto population {generate_population(n, POPULATION_SIZE)};
+    tsp_solver(population);
     // std::cout << " " << population;
     std::vector<int> p1{0, 1, 2, 3};
     std::vector<int> p2{3, 2, 1, 0};
     std::mt19937 gen(1);
 
-    auto child = create_child(p1, p2, gen);
-    std::cout << "child: " << child << "\n";
     return 0;
 }
