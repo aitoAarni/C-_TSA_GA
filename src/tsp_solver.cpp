@@ -70,7 +70,7 @@ std::vector<int> create_child(std::vector<int> &parent_a, std::vector<int> &pare
     std::vector<int> child(parent_a.size());
     // decide which one is first city without modulo (first bit of random number decides it)
     child[0] = gen() & 1 ? parent_a[0] : parent_b[0];
-    visited[child[0]];
+    visited[child[0]] = true;
     int smaller_city;
     for (int i{1}; i < child.size(); i++)
     {
@@ -118,7 +118,7 @@ std::vector<int> create_child(std::vector<int> &parent_a, std::vector<int> &pare
                 }
             }
         }
-        visited[i] = child[i];
+        visited[child[i]] = true;
     }
     return child;
 }
