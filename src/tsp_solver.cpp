@@ -99,21 +99,24 @@ std::vector<int> create_child(std::vector<int> &parent_a, std::vector<int> &pare
                     if (!visited[parent_a[j]])
                     {
                         child[i] = parent_a[j];
+                        break;
                     }
                     else if (!visited[parent_b[j]])
                     {
                         child[i] = parent_b[j];
+                        break;
                     }
                 }
                 else
                 {
-                    if (!visited[parent_b[j]])
+                    const auto& search_parent = (gen() & 1) ? parent_a : parent_b;
+                    for (int city : search_parent) 
                     {
-                        child[i] = parent_b[j];
-                    }
-                    else if (!visited[parent_a[j]])
-                    {
-                        child[i] = parent_a[j];
+                        if (!visited[city]) 
+                        {
+                            child[i] = city;
+                            break;
+                        }
                     }
                 }
             }
