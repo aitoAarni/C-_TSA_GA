@@ -17,14 +17,6 @@ constexpr int PARENT_GROUP_SIZE{4}; // the group size from which we will seek th
                                     // parents to make a child to the new generation
 const std::string INPUT_FILE{"../run/input.dat"};
 std::vector<City> city_locations;
-// TODO: generate initial mutations (and distributed them to threads)
-
-// in threads
-// take in population,
-// TODO: generate next generation, choose from current population a subset and find 2 best distances,
-// and create a child
-
-// DO this
 
 std::vector<std::vector<int>> generate_population(const int city_count, const int path_count)
 {
@@ -109,10 +101,10 @@ std::vector<int> create_child(std::vector<int> &parent_a, std::vector<int> &pare
                 }
                 else
                 {
-                    const auto& search_parent = (gen() & 1) ? parent_a : parent_b;
-                    for (int city : search_parent) 
+                    const auto &search_parent = (gen() & 1) ? parent_a : parent_b;
+                    for (int city : search_parent)
                     {
-                        if (!visited[city]) 
+                        if (!visited[city])
                         {
                             child[i] = city;
                             break;
@@ -126,7 +118,8 @@ std::vector<int> create_child(std::vector<int> &parent_a, std::vector<int> &pare
     return child;
 }
 
-void run_one_generation(std::vector<std::vector<int>> &current_generation, std::vector<std::vector<int>> &new_generation, std::mt19937 &gen)
+
+std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation, std::mt19937 &gen)
 {
     std::vector<int> route_distances;
     route_distances.reserve(current_generation.size());
@@ -134,12 +127,10 @@ void run_one_generation(std::vector<std::vector<int>> &current_generation, std::
     {
         route_distances.push_back(calc_route_distance(route));
     }
-    auto population_size{current_generation.size()};
-    std::cout << "routes:\n " << current_generation;
-    std::cout << "route_distances:\n " << route_distances;
+    std::size_t population_size {current_generation.size()};
     std::vector<int> parent_pool(PARENT_GROUP_SIZE);
     unsigned int previous_index{2'000'000'000};
-
+    
     // generate new generation in this loop
     // for (int i {1}; i < population_size; i++) {
 
@@ -155,10 +146,10 @@ void run_one_generation(std::vector<std::vector<int>> &current_generation, std::
         parent_pool[j] = index;
         previous_index = index;
     }
-
+    
     // here we pick the 2 fittest parents to make a child
     std::sort(parent_pool.begin(), parent_pool.end(), [&route_distances](const int a, const int b)
-              { return route_distances[a] < route_distances[b]; });
+    { return route_distances[a] < route_distances[b]; });
     int parent_1 = parent_pool[0];
     int parent_2{};
     int i{0};
@@ -168,30 +159,44 @@ void run_one_generation(std::vector<std::vector<int>> &current_generation, std::
         parent_2 = parent_pool[i];
     } while (parent_1 == parent_2);
 
-    std::cout << "sorted parent pool\n " << parent_pool;
-    std::cout << "parent pool sizes in order:\n\n";
-    for (const auto &index : parent_pool)
-    {
-        std::cout << route_distances[index] << "\n";
-    }
-    auto child = create_child(current_generation[parent_1], current_generation[parent_2], gen);
-    std::cout << "child: " << child;
-    std::cout << "dist: " << calc_route_distance(child); 
-    std::cout << "\n";
-
+    return create_child(current_generation[parent_1], current_generation[parent_2], gen);
 }
 
+void run_one_generation(std::vector<std::vector<int>> &current_generation, std::vector<std::vector<int>> &new_generation, std::mt19937 &gen)
+{
+    int shortest_route {int(2e9)};
+    // keep the shortest route at index 0
+    for (int i {1}; i < current_generation.size(); i++) {
+        auto child = get_offspring(current_generation, gen);
+        new_generation[i] = child;
+        int child_distance {calc_route_distance(child)};
+        if (shortest_route > child_distance) {
+            std::swap(new_generation[i], new_generation[0]);
+            shortest_route = child_distance;
+        }
+    }
+    // just display
+    std::cout << "current_generatrion\n";
+    for (const auto& path : current_generation) {
+        print_vector(path);
+        std:: cout << ", distance: " << calc_route_distance(path) << "\n";
+    }
+
+    std::cout << "\nnew_generatrion\n";
+    for (const auto& path : new_generation) {
+        print_vector(path);
+        std:: cout << ", distance: " << calc_route_distance(path) << "\n";
+    }
+}
 void tsp_solver(std::vector<std::vector<int>> &current_generation)
 {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::vector<std::vector<int>> new_generation(current_generation.size());
+    new_generation[0] = current_generation[0];
     run_one_generation(current_generation, new_generation, gen);
-
-    // for (int i {0}; i < GENERATIONS; i++) {
-
-    // }
 }
+
 
 int main()
 {
@@ -204,10 +209,6 @@ int main()
     std::vector<std::vector<int>> pop{base_route};
     auto population = generate_population(n, POPULATION_SIZE);
     tsp_solver(population);
-    // std::cout << " " << population;
-    std::vector<int> p1{0, 1, 2, 3};
-    std::vector<int> p2{3, 2, 1, 0};
-    std::mt19937 gen(1);
 
     return 0;
 }

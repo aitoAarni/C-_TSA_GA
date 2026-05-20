@@ -13,11 +13,10 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
 }
 
 template <typename T>
-void print_vector(std::vector<T>& vec) {
+void print_vector(const std::vector<T>& vec) {
     for (const T& value : vec) {
         std::cout << value << " ";
     }
-    std::cout << "\n";
 }
 
 
