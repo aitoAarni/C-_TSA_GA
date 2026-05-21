@@ -56,7 +56,7 @@ int calc_route_distance(const std::vector<int> &route)
     return distance;
 }
 
-std::vector<int> create_child(std::vector<int> &parent_a, std::vector<int> &parent_b, std::mt19937 &gen)
+std::vector<int> reproduce(std::vector<int> &parent_a, std::vector<int> &parent_b, std::mt19937 &gen)
 {
     std::vector<bool> visited(parent_a.size(), false);
     std::vector<int> child(parent_a.size());
@@ -159,15 +159,30 @@ std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation
         parent_2 = parent_pool[i];
     } while (parent_1 == parent_2);
 
-    return create_child(current_generation[parent_1], current_generation[parent_2], gen);
+    return reproduce(current_generation[parent_1], current_generation[parent_2], gen);
 }
 
-void run_one_generation(std::vector<std::vector<int>> &current_generation, std::vector<std::vector<int>> &new_generation, std::mt19937 &gen)
+void mutate(std::vector<int>& route, std::uniform_int_distribution<int>& index_distribution, std::mt19937& gen) {
+    int i_1 = index_distribution(gen);
+    int i_2 {};
+    do {
+
+        i_2 = index_distribution(gen);
+    } while (i_1 == i_2);
+    std::swap(route[i_1], route[i_2]);
+}
+
+void run_one_generation(std::vector<std::vector<int>> &current_generation, std::vector<std::vector<int>> &new_generation, std::mt19937& gen)
 {
+    std::bernoulli_distribution mutation_chance(MUTATION_RATE/100);
+    std::uniform_int_distribution<int> mutation_index(0, current_generation[0].size());
     int shortest_route {int(2e9)};
     // keep the shortest route at index 0
     for (int i {1}; i < current_generation.size(); i++) {
         auto child = get_offspring(current_generation, gen);
+        if (mutation_chance(gen)) {
+            mutate(child, mutation_index, gen);
+        }
         new_generation[i] = child;
         int child_distance {calc_route_distance(child)};
         if (shortest_route > child_distance) {
@@ -178,6 +193,8 @@ void run_one_generation(std::vector<std::vector<int>> &current_generation, std::
     // just display
     
 }
+
+
 void tsp_solver(std::vector<std::vector<int>> &current_generation)
 {
     std::random_device rd;
