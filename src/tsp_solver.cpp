@@ -12,7 +12,7 @@
 
 constexpr int MUTATION_RATE{5}; // in percentages
 constexpr int POPULATION_SIZE{10};
-constexpr int GENERATIONS{10};
+constexpr int GENERATIONS{8};
 constexpr int PARENT_GROUP_SIZE{4}; // the group size from which we will seek the most fit
                                     // parents to make a child to the new generation
 const std::string INPUT_FILE{"../run/input.dat"};
@@ -176,17 +176,7 @@ void run_one_generation(std::vector<std::vector<int>> &current_generation, std::
         }
     }
     // just display
-    std::cout << "current_generatrion\n";
-    for (const auto& path : current_generation) {
-        print_vector(path);
-        std:: cout << ", distance: " << calc_route_distance(path) << "\n";
-    }
-
-    std::cout << "\nnew_generatrion\n";
-    for (const auto& path : new_generation) {
-        print_vector(path);
-        std:: cout << ", distance: " << calc_route_distance(path) << "\n";
-    }
+    
 }
 void tsp_solver(std::vector<std::vector<int>> &current_generation)
 {
@@ -194,7 +184,21 @@ void tsp_solver(std::vector<std::vector<int>> &current_generation)
     std::mt19937 gen(rd());
     std::vector<std::vector<int>> new_generation(current_generation.size());
     new_generation[0] = current_generation[0];
-    run_one_generation(current_generation, new_generation, gen);
+    std::cout << "current_generatrion\n";
+    for (const auto& path : current_generation) {
+        print_vector(path);
+        std:: cout << ", distance: " << calc_route_distance(path) << "\n";
+    }
+    for (int i {0}; i < GENERATIONS; i++) {
+        run_one_generation(current_generation, new_generation, gen);
+        std::cout << "\nnew_generatrion\n";
+        for (const auto& path : new_generation) {
+            print_vector(path);
+            std:: cout << ", distance: " << calc_route_distance(path) << "\n";
+        }
+        std::swap(current_generation, new_generation);
+
+    }
 }
 
 
