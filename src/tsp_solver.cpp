@@ -204,12 +204,12 @@ void tsp_solver(std::vector<std::vector<int>> &current_generation)
     }
 }
 
-int main()
+int main(char* argv)
 {
     std::cout << "works?\n";
     city_locations = read_input(INPUT_FILE);
+    
     std::size_t n{city_locations.size()};
-
     std::vector<int> base_route(n);
     std::iota(base_route.begin(), base_route.end(), 0);
     std::vector<std::vector<int>> pop{base_route};
