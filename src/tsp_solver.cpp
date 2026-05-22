@@ -97,14 +97,8 @@ std::vector<int> reproduce(std::vector<int> &parent_a, std::vector<int> &parent_
     return child;
 }
 
-std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation, std::mt19937 &gen)
+std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation, std::vector<int> &route_distances, std::mt19937 &gen)
 {
-    std::vector<int> route_distances;
-    route_distances.reserve(current_generation.size());
-    for (const auto &route : current_generation)
-    {
-        route_distances.push_back(calc_route_distance(route));
-    }
     std::size_t population_size{current_generation.size()};
     std::vector<int> parent_pool(PARENT_GROUP_SIZE);
     unsigned int previous_index{2'000'000'000};
@@ -161,9 +155,15 @@ void run_one_generation(std::vector<std::vector<int>> &current_generation, std::
     int shortest_route{calc_route_distance(current_generation[0])};
     int best_index{0};
     new_generation[0] = current_generation[0];
+    std::vector<int> route_distances;
+    route_distances.reserve(current_generation.size());
+    for (const auto &route : current_generation)
+    {
+        route_distances.push_back(calc_route_distance(route));
+    }
     for (int i{1}; i < current_generation.size(); i++)
     {
-        auto child = get_offspring(current_generation, gen);
+        auto child = get_offspring(current_generation, route_distances, gen);
         if (mutation_chance(gen))
         {
             mutate(child, mutation_index, gen);
