@@ -83,33 +83,12 @@ std::vector<int> reproduce(std::vector<int> &parent_a, std::vector<int> &parent_
         }
         else
         {
-            for (int j{i + 1}; j < child.size(); j++)
+            for (int city = 0; city < child.size(); ++city)
             {
-                bool temp = gen() & 1;
-                if (temp)
+                if (!visited[city])
                 {
-                    if (!visited[parent_a[j]])
-                    {
-                        child[i] = parent_a[j];
-                        break;
-                    }
-                    else if (!visited[parent_b[j]])
-                    {
-                        child[i] = parent_b[j];
-                        break;
-                    }
-                }
-                else
-                {
-                    const auto &search_parent = (gen() & 1) ? parent_a : parent_b;
-                    for (int city : search_parent)
-                    {
-                        if (!visited[city])
-                        {
-                            child[i] = city;
-                            break;
-                        }
-                    }
+                    child[i] = city;
+                    break;
                 }
             }
         }
@@ -117,7 +96,6 @@ std::vector<int> reproduce(std::vector<int> &parent_a, std::vector<int> &parent_
     }
     return child;
 }
-
 
 std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation, std::mt19937 &gen)
 {
@@ -127,10 +105,11 @@ std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation
     {
         route_distances.push_back(calc_route_distance(route));
     }
-    std::size_t population_size {current_generation.size()};
+    std::size_t population_size{current_generation.size()};
     std::vector<int> parent_pool(PARENT_GROUP_SIZE);
     unsigned int previous_index{2'000'000'000};
-    
+
+    std::uniform_int_distribution<int> parent_dist(0, population_size - 1);
     // generate new generation in this loop
     // for (int i {1}; i < population_size; i++) {
 
@@ -141,15 +120,15 @@ std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation
         // make sure potential parent's are not all the same index
         do
         {
-            index = {gen() % population_size};
+            index = parent_dist(gen);
         } while (index == previous_index);
         parent_pool[j] = index;
         previous_index = index;
     }
-    
+
     // here we pick the 2 fittest parents to make a child
     std::sort(parent_pool.begin(), parent_pool.end(), [&route_distances](const int a, const int b)
-    { return route_distances[a] < route_distances[b]; });
+              { return route_distances[a] < route_distances[b]; });
     int parent_1 = parent_pool[0];
     int parent_2{};
     int i{0};
@@ -162,38 +141,43 @@ std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation
     return reproduce(current_generation[parent_1], current_generation[parent_2], gen);
 }
 
-void mutate(std::vector<int>& route, std::uniform_int_distribution<int>& index_distribution, std::mt19937& gen) {
+void mutate(std::vector<int> &route, std::uniform_int_distribution<int> &index_distribution, std::mt19937 &gen)
+{
     int i_1 = index_distribution(gen);
-    int i_2 {};
-    do {
+    int i_2{};
+    do
+    {
 
         i_2 = index_distribution(gen);
     } while (i_1 == i_2);
     std::swap(route[i_1], route[i_2]);
 }
 
-void run_one_generation(std::vector<std::vector<int>> &current_generation, std::vector<std::vector<int>> &new_generation, std::mt19937& gen)
+void run_one_generation(std::vector<std::vector<int>> &current_generation, std::vector<std::vector<int>> &new_generation, std::mt19937 &gen)
 {
-    std::bernoulli_distribution mutation_chance(MUTATION_RATE/100);
-    std::uniform_int_distribution<int> mutation_index(0, current_generation[0].size());
-    int shortest_route {int(2e9)};
+    std::bernoulli_distribution mutation_chance(MUTATION_RATE / 100.0);
+    std::uniform_int_distribution<int> mutation_index(0, current_generation[0].size() - 1);
     // keep the shortest route at index 0
-    for (int i {1}; i < current_generation.size(); i++) {
+    int shortest_route{calc_route_distance(current_generation[0])};
+    int best_index{0};
+    new_generation[0] = current_generation[0];
+    for (int i{1}; i < current_generation.size(); i++)
+    {
         auto child = get_offspring(current_generation, gen);
-        if (mutation_chance(gen)) {
+        if (mutation_chance(gen))
+        {
             mutate(child, mutation_index, gen);
         }
         new_generation[i] = child;
-        int child_distance {calc_route_distance(child)};
-        if (shortest_route > child_distance) {
-            std::swap(new_generation[i], new_generation[0]);
+        int child_distance{calc_route_distance(child)};
+        if (shortest_route > child_distance)
+        {
             shortest_route = child_distance;
+            best_index = i;
         }
     }
-    // just display
-    
+    std::swap(new_generation[0], new_generation[best_index]);
 }
-
 
 void tsp_solver(std::vector<std::vector<int>> &current_generation)
 {
@@ -202,22 +186,23 @@ void tsp_solver(std::vector<std::vector<int>> &current_generation)
     std::vector<std::vector<int>> new_generation(current_generation.size());
     new_generation[0] = current_generation[0];
     std::cout << "current_generatrion\n";
-    for (const auto& path : current_generation) {
+    for (const auto &path : current_generation)
+    {
         print_vector(path);
-        std:: cout << ", distance: " << calc_route_distance(path) << "\n";
+        std::cout << ", distance: " << calc_route_distance(path) << "\n";
     }
-    for (int i {0}; i < GENERATIONS; i++) {
+    for (int i{0}; i < GENERATIONS; i++)
+    {
         run_one_generation(current_generation, new_generation, gen);
         std::cout << "\nnew_generatrion\n";
-        for (const auto& path : new_generation) {
+        for (const auto &path : new_generation)
+        {
             print_vector(path);
-            std:: cout << ", distance: " << calc_route_distance(path) << "\n";
+            std::cout << ", distance: " << calc_route_distance(path) << "\n";
         }
         std::swap(current_generation, new_generation);
-
     }
 }
-
 
 int main()
 {
