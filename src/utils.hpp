@@ -3,6 +3,8 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <cstdlib>
+#include <cmath>
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec)
@@ -36,7 +38,7 @@ std::vector<City> read_input(const std::string &);
 
 struct Args
 {
-    int threads;
+    int threads{1};
 };
 
 Args parse_args(int, char *argv[]);

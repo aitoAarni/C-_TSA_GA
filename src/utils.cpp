@@ -41,3 +41,17 @@ Args parse_args(int argc, char *argv[])
     }
     return args;
 }
+
+std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std::vector<int>>& population, int population_size, int thread_count) {
+    int partition_size = std::ceil(double(population_size)/thread_count);
+    std::vector<std::vector<std::vector<int>>> partitioned_population;
+
+    int start {0};
+    int end {partition_size};
+    for (int i {0}; i < thread_count; i++) {
+        partitioned_population.emplace_back(population.begin() + start, population.begin() + end);
+        start += partition_size;
+        end = std::min(start+partition_size, population_size);
+    }
+    return partitioned_population;
+}
