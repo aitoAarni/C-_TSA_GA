@@ -12,9 +12,9 @@
 #include <thread>
 
 constexpr int MUTATION_RATE{5}; // in percentages
-constexpr int POPULATION_SIZE{10};
-constexpr int GENERATIONS{8};
-constexpr int PARENT_GROUP_SIZE{4}; // the group size from which we will seek the most fit
+constexpr int POPULATION_SIZE{40};
+constexpr int GENERATIONS{15};
+constexpr int PARENT_GROUP_SIZE{8}; // the group size from which we will seek the most fit
                                     // parents to make a child to the new generation
 const std::string INPUT_FILE{"../run/input.dat"};
 std::vector<City> city_locations;
@@ -180,50 +180,83 @@ void run_one_generation(std::vector<std::vector<int>> &current_generation, std::
     std::swap(new_generation[0], new_generation[best_index]);
 }
 
+std::vector<int> shortest_routes(std::vector<int> &route_distances, int n)
+{
+    // finds the shortest n routes in route_distances vector
+    std::vector<int> indices(route_distances.size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    std::sort(indices.begin(), indices.end(),
+                      [&route_distances](int a, int b)
+                      {
+                          return route_distances[a] < route_distances[b];
+                      });
+
+    return indices;
+}
+
+void stepping_stone(
+    std::vector<std::vector<int>> &current_generation,
+    std::vector<int> &route_distances,
+    SteppingStoneStruct &synced_data, // shared data routes between threads with a flag to avoid data race
+    int thread_id)
+{
+    auto best_route_indexes = shortest_routes(route_distances, synced_data.routes.size());
+    int write_index{thread_id == synced_data.fresh_data_flags.size() - 1 ? 0 : thread_id + 1};
+    int read_index{thread_id == 0 ? synced_data.fresh_data_flags.size() - 1 : thread_id - 1};
+
+    // send best routes to another thread
+    synced_data.fresh_data_flags[write_index].wait(true);
+    for (int i {0}; i < synced_data.routes[write_index].size(); i++) {
+        synced_data.routes[write_index][i] = current_generation[best_route_indexes[i]];
+    }
+    synced_data.fresh_data_flags[write_index] = true;
+    synced_data.fresh_data_flags[write_index].notify_one();
+
+    // receive best routes from another thread
+    synced_data.fresh_data_flags[read_index].wait(false);
+    int last_index {current_generation.size() - 1 };
+    for (int i {0}; i < synced_data.routes[read_index].size(); i++) {
+        current_generation[last_index - i] = synced_data.routes[read_index][i];
+    }
+    synced_data.fresh_data_flags[read_index] = false;
+    synced_data.fresh_data_flags[read_index].notify_one();
+}
+
 void tsp_solver(std::vector<std::vector<int>> &current_generation)
 {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::vector<std::vector<int>> new_generation(current_generation.size());
     new_generation[0] = current_generation[0];
-    std::cout << "current_generatrion\n";
-    for (const auto &path : current_generation)
-    {
-        print_vector(path);
-        std::cout << ", distance: " << calc_route_distance(path) << "\n";
-    }
     for (int i{0}; i < GENERATIONS; i++)
     {
         run_one_generation(current_generation, new_generation, gen);
-        std::cout << "\nnew_generatrion\n";
-        for (const auto &path : new_generation)
-        {
-            print_vector(path);
-            std::cout << ", distance: " << calc_route_distance(path) << "\n";
-        }
         std::swap(current_generation, new_generation);
     }
 }
 
-
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     auto args = parse_args(argc, argv);
     city_locations = read_input(INPUT_FILE);
-     
+
     std::size_t n{city_locations.size()};
 
     auto population = generate_population(n, POPULATION_SIZE);
     auto partitioned_population = partition_population(population, POPULATION_SIZE, args.threads);
     std::vector<std::jthread> threads;
-    for (int i {0}; i < args.threads; i++) {
+    for (int i{0}; i < args.threads; i++)
+    {
         threads.emplace_back(tsp_solver, std::ref(partitioned_population[i]));
     }
-    for (auto& thread : threads) {
+    for (auto &thread : threads)
+    {
         thread.join();
     }
 
-    for (const auto& sub_pop : partitioned_population) {
+    for (const auto &sub_pop : partitioned_population)
+    {
         std::cout << "\nNew_gorup:\n";
         for (const auto &path : sub_pop)
         {
@@ -231,7 +264,6 @@ int main(int argc, char* argv[])
             std::cout << ", distance: " << calc_route_distance(path) << "\n";
         }
     }
-
 
     return 0;
 }

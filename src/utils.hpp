@@ -5,6 +5,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <cmath>
+#include <atomic>
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec)
@@ -43,5 +44,10 @@ struct Args
 
 Args parse_args(int, char *argv[]);
 
+std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std::vector<int>> &population, int population_size, int thread_count);
 
-std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std::vector<int>>& population, int population_size, int thread_count);
+struct SteppingStoneStruct
+{
+    std::vector<std::atomic<int>> fresh_data_flags{false};
+    std::vector<std::vector<std::vector<int>>> &routes;
+}
