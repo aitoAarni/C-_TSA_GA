@@ -13,6 +13,7 @@
 
 constexpr int MUTATION_RATE{5}; // in percentages
 constexpr int POPULATION_SIZE{40};
+constexpr int MIGRATION_FREQUENCY {50}; // Frequency of migrations in generation cycles
 constexpr int GENERATIONS{15};
 constexpr int PARENT_GROUP_SIZE{8}; // the group size from which we will seek the most fit
                                     // parents to make a child to the new generation
@@ -148,7 +149,11 @@ void mutate(std::vector<int> &route, std::uniform_int_distribution<int> &index_d
     std::swap(route[i_1], route[i_2]);
 }
 
-void run_one_generation(std::vector<std::vector<int>> &current_generation, std::vector<std::vector<int>> &new_generation, std::mt19937 &gen)
+void run_one_generation(
+    std::vector<std::vector<int>> &current_generation,
+    std::vector<std::vector<int>> &new_generation,
+    std::vector<int> &route_distances,
+    std::mt19937 &gen)
 {
     std::bernoulli_distribution mutation_chance(MUTATION_RATE / 100.0);
     std::uniform_int_distribution<int> mutation_index(0, current_generation[0].size() - 1);
@@ -156,12 +161,6 @@ void run_one_generation(std::vector<std::vector<int>> &current_generation, std::
     int shortest_route{calc_route_distance(current_generation[0])};
     int best_index{0};
     new_generation[0] = current_generation[0];
-    std::vector<int> route_distances;
-    route_distances.reserve(current_generation.size());
-    for (const auto &route : current_generation)
-    {
-        route_distances.push_back(calc_route_distance(route));
-    }
     for (int i{1}; i < current_generation.size(); i++)
     {
         auto child = get_offspring(current_generation, route_distances, gen);
@@ -187,51 +186,63 @@ std::vector<int> shortest_routes(std::vector<int> &route_distances, int n)
     std::iota(indices.begin(), indices.end(), 0);
 
     std::sort(indices.begin(), indices.end(),
-                      [&route_distances](int a, int b)
-                      {
-                          return route_distances[a] < route_distances[b];
-                      });
+              [&route_distances](int a, int b)
+              {
+                  return route_distances[a] < route_distances[b];
+              });
 
     return indices;
 }
 
-void stepping_stone(
+void execute_migration(
     std::vector<std::vector<int>> &current_generation,
     std::vector<int> &route_distances,
-    SteppingStoneStruct &synced_data, // shared data routes between threads with a flag to avoid data race
+    MigrationStruct &migration_routes, // shared data routes between threads with a flag to avoid data race
     int thread_id)
 {
-    auto best_route_indexes = shortest_routes(route_distances, synced_data.routes.size());
-    int write_index{thread_id == synced_data.fresh_data_flags.size() - 1 ? 0 : thread_id + 1};
-    int read_index{thread_id == 0 ? synced_data.fresh_data_flags.size() - 1 : thread_id - 1};
+    auto best_route_indexes = shortest_routes(route_distances, migration_routes.routes.size());
+    int write_index{thread_id == migration_routes.thread_count - 1 ? 0 : thread_id + 1};
+    int read_index{thread_id == 0 ? migration_routes.thread_count - 1 : thread_id - 1};
 
     // send best routes to another thread
-    synced_data.fresh_data_flags[write_index].wait(true);
-    for (int i {0}; i < synced_data.routes[write_index].size(); i++) {
-        synced_data.routes[write_index][i] = current_generation[best_route_indexes[i]];
+    migration_routes.fresh_data_flags[write_index].wait(true);
+    for (int i{0}; i < migration_routes.routes[write_index].size(); i++)
+    {
+        migration_routes.routes[write_index][i] = current_generation[best_route_indexes[i]];
     }
-    synced_data.fresh_data_flags[write_index] = true;
-    synced_data.fresh_data_flags[write_index].notify_one();
+    migration_routes.fresh_data_flags[write_index] = true;
+    migration_routes.fresh_data_flags[write_index].notify_one();
 
     // receive best routes from another thread
-    synced_data.fresh_data_flags[read_index].wait(false);
-    int last_index {current_generation.size() - 1 };
-    for (int i {0}; i < synced_data.routes[read_index].size(); i++) {
-        current_generation[last_index - i] = synced_data.routes[read_index][i];
+    migration_routes.fresh_data_flags[read_index].wait(false);
+    int last_index{current_generation.size() - 1};
+    for (int i{0}; i < migration_routes.routes[read_index].size(); i++)
+    {
+        current_generation[last_index - i] = migration_routes.routes[read_index][i];
     }
-    synced_data.fresh_data_flags[read_index] = false;
-    synced_data.fresh_data_flags[read_index].notify_one();
+    migration_routes.fresh_data_flags[read_index] = false;
+    migration_routes.fresh_data_flags[read_index].notify_one();
 }
 
-void tsp_solver(std::vector<std::vector<int>> &current_generation)
+void tsp_solver(std::vector<std::vector<int>> &current_generation, MigrationStruct &migration_routes, int thread_id)
 {
+    migration_routes.routes[thread_id].resize(std::min(static_cast<std::size_t>(3), current_generation.size()));
     std::random_device rd;
     std::mt19937 gen(rd());
     std::vector<std::vector<int>> new_generation(current_generation.size());
     new_generation[0] = current_generation[0];
     for (int i{0}; i < GENERATIONS; i++)
     {
-        run_one_generation(current_generation, new_generation, gen);
+        std::vector<int> route_distances;
+        route_distances.reserve(current_generation.size());
+        for (const auto &route : current_generation)
+        {
+            route_distances.push_back(calc_route_distance(route));
+        }
+        if (i % MIGRATION_FREQUENCY && i != 0) {
+            execute_migration(current_generation, route_distances, migration_routes, thread_id);
+        }
+        run_one_generation(current_generation, new_generation, route_distances, gen);
         std::swap(current_generation, new_generation);
     }
 }
@@ -246,9 +257,10 @@ int main(int argc, char *argv[])
     auto population = generate_population(n, POPULATION_SIZE);
     auto partitioned_population = partition_population(population, POPULATION_SIZE, args.threads);
     std::vector<std::jthread> threads;
+    MigrationStruct migration_routes(args.threads);
     for (int i{0}; i < args.threads; i++)
     {
-        threads.emplace_back(tsp_solver, std::ref(partitioned_population[i]));
+        threads.emplace_back(tsp_solver, std::ref(partitioned_population[i]), std::ref(migration_routes), i);
     }
     for (auto &thread : threads)
     {

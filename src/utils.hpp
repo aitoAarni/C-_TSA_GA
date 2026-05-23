@@ -46,8 +46,11 @@ Args parse_args(int, char *argv[]);
 
 std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std::vector<int>> &population, int population_size, int thread_count);
 
-struct SteppingStoneStruct
+struct MigrationStruct
 {
+
+    int thread_count;
     std::vector<std::atomic<int>> fresh_data_flags{false};
-    std::vector<std::vector<std::vector<int>>> &routes;
-}
+    std::vector<std::vector<std::vector<int>>> routes;
+    MigrationStruct(int thread_c) : thread_count(thread_c), fresh_data_flags(thread_c), routes(thread_c) {}
+};
