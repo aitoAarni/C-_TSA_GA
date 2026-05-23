@@ -7,3 +7,5 @@ src/tsp_solver
 *.zip
 
 .DS_Store
+
+.venv/
