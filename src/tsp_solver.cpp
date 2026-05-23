@@ -39,9 +39,9 @@ std::vector<std::vector<int>> generate_population(const int city_count, const in
 
 int calc_city_distance(const City &a, const City &b)
 {
-    int x = std::pow(a.x - b.x, 2);
-    int y = std::pow(a.y - b.y, 2);
-    return std::sqrt(x + y);
+    int x = a.x - b.x;
+    int y = a.y - b.y;
+    return std::sqrt(x * x + y * y)
 }
 
 int calc_route_distance(const std::vector<int> &route)

@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <atomic>
+#include <memory>
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec)
@@ -50,7 +51,7 @@ struct MigrationStruct
 {
 
     int thread_count;
-    std::vector<std::atomic<int>> fresh_data_flags{false};
+    std::unique_ptr<std::atomic<bool>[]> fresh_data_flags;
     std::vector<std::vector<std::vector<int>>> routes;
-    MigrationStruct(int thread_c) : thread_count(thread_c), fresh_data_flags(thread_c), routes(thread_c) {}
+    MigrationStruct(int thread_c) : thread_count(thread_c), fresh_data_flags(std::make_unique<std::atomic<bool>[]>(thread_c)), routes(thread_c) {}
 };
