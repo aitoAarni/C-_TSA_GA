@@ -11,13 +11,12 @@
 #include "utils.hpp"
 #include <thread>
 
-constexpr int MUTATION_RATE{5}; // in percentages
-constexpr int POPULATION_SIZE{40};
-constexpr int MIGRATION_FREQUENCY {50}; // Frequency of migrations in generation cycles
-constexpr int GENERATIONS{15};
-constexpr int PARENT_GROUP_SIZE{8}; // the group size from which we will seek the most fit
-                                    // parents to make a child to the new generation
-const std::string INPUT_FILE{"../run/input.dat"};
+Args ARGS;                             // Struct for command line arguments
+constexpr int MUTATION_RATE{5};        // in percentages
+constexpr int MIGRANT_COUNT{3};        // how many migrants are included in a migration
+constexpr int PARENT_GROUP_SIZE{8};    // the group size from which we will seek the most fit
+                                       // parents to make a child to the new generation
+
 std::vector<City> city_locations;
 
 std::vector<std::vector<int>> generate_population(const int city_count, const int path_count)
@@ -41,7 +40,7 @@ int calc_city_distance(const City &a, const City &b)
 {
     int x = a.x - b.x;
     int y = a.y - b.y;
-    return std::sqrt(x * x + y * y)
+    return std::sqrt(x * x + y * y);
 }
 
 int calc_route_distance(const std::vector<int> &route)
@@ -106,12 +105,10 @@ std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation
     unsigned int previous_index{2'000'000'000};
 
     std::uniform_int_distribution<int> parent_dist(0, population_size - 1);
-    // generate new generation in this loop
-    // for (int i {1}; i < population_size; i++) {
 
+    // in this loop we pick the potential parents for a child
     for (int j{0}; j < PARENT_GROUP_SIZE; j++)
     {
-        // in this loop we pick the potential parents for a child
         unsigned long index{};
         // make sure potential parent's are not all the same index
         do
@@ -149,14 +146,15 @@ void mutate(std::vector<int> &route, std::uniform_int_distribution<int> &index_d
     std::swap(route[i_1], route[i_2]);
 }
 
-std::vector<int> get_route_distances(std::vector<std::vector<int>>& current_generation) {
-        std::vector<int> route_distances;
-        route_distances.reserve(current_generation.size());
-        for (const auto &route : current_generation)
-        {
-            route_distances.push_back(calc_route_distance(route));
-        }
-        return route_distances;
+std::vector<int> get_route_distances(std::vector<std::vector<int>> &current_generation)
+{
+    std::vector<int> route_distances;
+    route_distances.reserve(current_generation.size());
+    for (const auto &route : current_generation)
+    {
+        route_distances.push_back(calc_route_distance(route));
+    }
+    return route_distances;
 }
 void run_one_generation(
     std::vector<std::vector<int>> &current_generation,
@@ -188,18 +186,35 @@ void run_one_generation(
     std::swap(new_generation[0], new_generation[best_index]);
 }
 
-std::vector<int> shortest_routes(std::vector<int> &route_distances, int n)
+std::vector<int> get_best_routes(const std::vector<int> &route_distances, int n)
 {
-    // finds the shortest n routes in route_distances vector
+    int actual_n = std::min(n, static_cast<int>(route_distances.size()));
     std::vector<int> indices(route_distances.size());
     std::iota(indices.begin(), indices.end(), 0);
 
-    std::sort(indices.begin(), indices.end(),
-              [&route_distances](int a, int b)
-              {
-                  return route_distances[a] < route_distances[b];
-              });
+    std::partial_sort(indices.begin(), indices.begin() + actual_n, indices.end(),
+                      [&route_distances](int a, int b)
+                      {
+                          return route_distances[a] < route_distances[b];
+                      });
 
+    indices.resize(actual_n);
+    return indices;
+}
+
+std::vector<int> get_worst_routes(const std::vector<int> &route_distances, int n)
+{
+    int actual_n = std::min(n, static_cast<int>(route_distances.size()));
+    std::vector<int> indices(route_distances.size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    std::partial_sort(indices.begin(), indices.begin() + actual_n, indices.end(),
+                      [&route_distances](int a, int b)
+                      {
+                          return route_distances[a] > route_distances[b];
+                      });
+
+    indices.resize(actual_n);
     return indices;
 }
 
@@ -209,41 +224,47 @@ void execute_migration(
     int thread_id)
 {
     auto route_distances = get_route_distances(current_generation);
-    auto best_route_indexes = shortest_routes(route_distances, migration_routes.routes.size());
+    
     int write_index{thread_id == migration_routes.thread_count - 1 ? 0 : thread_id + 1};
-    int read_index{thread_id == 0 ? migration_routes.thread_count - 1 : thread_id - 1};
 
-    // send best routes to another thread
+    int send_count = migration_routes.routes[write_index].size();
+    int receive_count = migration_routes.routes[thread_id].size();
+    auto best_route_indexes = get_best_routes(route_distances, send_count);
+    auto worst_route_indexes = get_worst_routes(route_distances, receive_count);
+
+
+    // Send best routes to adjacent thread
     migration_routes.fresh_data_flags[write_index].wait(true);
-    for (int i{0}; i < migration_routes.routes[write_index].size(); i++)
+    for (int i{0}; i < best_route_indexes.size(); i++)
     {
         migration_routes.routes[write_index][i] = current_generation[best_route_indexes[i]];
     }
     migration_routes.fresh_data_flags[write_index] = true;
     migration_routes.fresh_data_flags[write_index].notify_one();
 
-    // receive best routes from another thread
-    migration_routes.fresh_data_flags[read_index].wait(false);
-    int last_index{current_generation.size() - 1};
-    for (int i{0}; i < migration_routes.routes[read_index].size(); i++)
+    // Receive best routes from the adjacent thread
+    migration_routes.fresh_data_flags[thread_id].wait(false);
+    for (int i{0}; i < worst_route_indexes.size(); i++)
     {
-        current_generation[last_index - i] = migration_routes.routes[read_index][i];
+        if (worst_route_indexes[i] != 0)
+        {
+            current_generation[worst_route_indexes[i]] = migration_routes.routes[thread_id][i];
+        }
     }
-    migration_routes.fresh_data_flags[read_index] = false;
-    migration_routes.fresh_data_flags[read_index].notify_one();
+    migration_routes.fresh_data_flags[thread_id] = false;
+    migration_routes.fresh_data_flags[thread_id].notify_one();
 }
-
 
 void tsp_solver(std::vector<std::vector<int>> &current_generation, MigrationStruct &migration_routes, int thread_id)
 {
-    migration_routes.routes[thread_id].resize(std::min(static_cast<std::size_t>(3), current_generation.size()));
     std::random_device rd;
     std::mt19937 gen(rd());
     std::vector<std::vector<int>> new_generation(current_generation.size());
     new_generation[0] = current_generation[0];
-    for (int i{0}; i < GENERATIONS; i++)
+    for (int i{0}; i < ARGS.generations; i++)
     {
-        if (i % MIGRATION_FREQUENCY == 0 && i != 0) {
+        if (i % ARGS.migration_frequency == 0 && i != 0)
+        {
             execute_migration(current_generation, migration_routes, thread_id);
         }
         run_one_generation(current_generation, new_generation, gen);
@@ -253,16 +274,28 @@ void tsp_solver(std::vector<std::vector<int>> &current_generation, MigrationStru
 
 int main(int argc, char *argv[])
 {
-    auto args = parse_args(argc, argv);
-    city_locations = read_input(INPUT_FILE);
+    parse_args(argc, argv, ARGS);
+    city_locations = read_input(ARGS.input_file);
 
     std::size_t n{city_locations.size()};
 
-    auto population = generate_population(n, POPULATION_SIZE);
-    auto partitioned_population = partition_population(population, POPULATION_SIZE, args.threads);
+    auto population = generate_population(n, ARGS.population_size);
+    auto partitioned_population = partition_population(population, ARGS.population_size, ARGS.threads);
     std::vector<std::jthread> threads;
-    MigrationStruct migration_routes(args.threads);
-    for (int i{0}; i < args.threads; i++)
+    MigrationStruct migration_routes(ARGS.threads);
+
+    // generate migration array sizes to be safe
+    // the last thread might have a smaller population, so we have to safeguard for that
+    for (int i{0}; i < ARGS.threads; i++)
+    {
+        int previous_index = i == 0 ? ARGS.threads - 1 : i - 1;
+        migration_routes.routes[i].resize(std::min({
+            static_cast<std::size_t>(MIGRANT_COUNT),
+            partitioned_population[i].size(),
+            partitioned_population[previous_index].size()}));
+    }
+
+    for (int i{0}; i < ARGS.threads; i++)
     {
         threads.emplace_back(tsp_solver, std::ref(partitioned_population[i]), std::ref(migration_routes), i);
     }

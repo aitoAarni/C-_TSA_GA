@@ -7,6 +7,7 @@
 #include <cmath>
 #include <atomic>
 #include <memory>
+#include <string>
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec)
@@ -41,9 +42,13 @@ std::vector<City> read_input(const std::string &);
 struct Args
 {
     int threads{1};
+    int generations {100};
+    int population_size {100};
+    int migration_frequency {50};
+    std::string input_file {"../run/input.dat"};
 };
 
-Args parse_args(int, char *argv[]);
+Args parse_args(int, char *argv[], Args&);
 
 std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std::vector<int>> &population, int population_size, int thread_count);
 
