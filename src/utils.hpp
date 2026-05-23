@@ -42,3 +42,6 @@ struct Args
 };
 
 Args parse_args(int, char *argv[]);
+
+
+std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std::vector<int>>& population, int population_size, int thread_count);

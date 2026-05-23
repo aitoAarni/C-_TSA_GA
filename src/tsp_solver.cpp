@@ -9,6 +9,7 @@
 #include <cmath>
 #include <format>
 #include "utils.hpp"
+#include <thread>
 
 constexpr int MUTATION_RATE{5}; // in percentages
 constexpr int POPULATION_SIZE{10};
@@ -211,11 +212,26 @@ int main(int argc, char* argv[])
     city_locations = read_input(INPUT_FILE);
      
     std::size_t n{city_locations.size()};
-    std::vector<int> base_route(n);
-    std::iota(base_route.begin(), base_route.end(), 0);
-    std::vector<std::vector<int>> pop{base_route};
+
     auto population = generate_population(n, POPULATION_SIZE);
-    tsp_solver(population);
+    auto partitioned_population = partition_population(population, POPULATION_SIZE, args.threads);
+    std::vector<std::jthread> threads;
+    for (int i {0}; i < args.threads; i++) {
+        threads.emplace_back(tsp_solver, std::ref(partitioned_population[i]));
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    for (const auto& sub_pop : partitioned_population) {
+        std::cout << "\nNew_gorup:\n";
+        for (const auto &path : sub_pop)
+        {
+            print_vector(path);
+            std::cout << ", distance: " << calc_route_distance(path) << "\n";
+        }
+    }
+
 
     return 0;
 }
