@@ -99,13 +99,3 @@ void print_global_champion(const std::vector<std::vector<std::vector<int>>>& par
     print_vector(global_best_route);
     std::cout << "\nUltimate Distance: " << global_best_distance << "\n\n";
 }
-
-void print_intermediate_results(int generation, int thread_id, const std::vector<int>& best_route)
-{
-    // The static mutex ensures only ONE thread can print to the terminal at a time
-    static std::mutex print_mutex;
-    int distance = calc_route_distance(best_route);
-
-    std::lock_guard<std::mutex> lock(print_mutex);
-    std::cout << "[Thread " << thread_id << " | Gen " << generation << "] Best Distance: " << distance << "\n";
-}

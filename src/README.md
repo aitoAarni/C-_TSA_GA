@@ -9,6 +9,7 @@ To generate input data, run the following command in the terminal:
 ```bash
 python3 generate_input.py
 ```
+There is already generated input data in the run directory, so you can skip this step if you want to use that data.
 
 ### Running the code
 
@@ -32,5 +33,4 @@ You have additional command line arguments:
 -g <number of generations> : specify the number of generations to run (default is 100)
 -p <population size> : specify the population size (default is 100)
 -m <migration interval> : specify the migration interval (default is 50)
-
 ```
