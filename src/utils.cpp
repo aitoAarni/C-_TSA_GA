@@ -72,3 +72,40 @@ std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std:
     }
     return partitioned_population;
 }
+
+void print_global_champion(const std::vector<std::vector<std::vector<int>>>& partitioned_population)
+{
+    int global_best_distance = 2'000'000'000;
+    std::vector<int> global_best_route;
+
+    std::cout << "\n--- Final Island Results ---\n";
+    for (std::size_t i{0}; i < partitioned_population.size(); i++)
+    {
+        const auto& island_best_route = partitioned_population[i][0];
+        int distance = calc_route_distance(island_best_route);
+
+        std::cout << "Thread " << i << " best distance: " << distance << "\n";
+
+        if (distance < global_best_distance)
+        {
+            global_best_distance = distance;
+            global_best_route = island_best_route;
+        }
+    }
+
+    std::cout << "\n==================================================\n";
+    std::cout << " GLOBAL BEST ROUTE FOUND:\n";
+    std::cout << "==================================================\n";
+    print_vector(global_best_route);
+    std::cout << "\nUltimate Distance: " << global_best_distance << "\n\n";
+}
+
+void print_intermediate_results(int generation, int thread_id, const std::vector<int>& best_route)
+{
+    // The static mutex ensures only ONE thread can print to the terminal at a time
+    static std::mutex print_mutex;
+    int distance = calc_route_distance(best_route);
+
+    std::lock_guard<std::mutex> lock(print_mutex);
+    std::cout << "[Thread " << thread_id << " | Gen " << generation << "] Best Distance: " << distance << "\n";
+}

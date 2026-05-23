@@ -1,21 +1,19 @@
 #include <vector>
+#include <functional>
 #include <iostream>
-#include <fstream>
-#include <string>
-#include <string_view>
 #include <numeric>
 #include <algorithm>
 #include <random>
 #include <cmath>
-#include <format>
-#include "utils.hpp"
 #include <thread>
+#include "utils.hpp"
+#include "migration.hpp"
 
-Args ARGS;                             // Struct for command line arguments
-constexpr int MUTATION_RATE{5};        // in percentages
-constexpr int MIGRANT_COUNT{3};        // how many migrants are included in a migration
-constexpr int PARENT_GROUP_SIZE{8};    // the group size from which we will seek the most fit
-                                       // parents to make a child to the new generation
+Args ARGS;                          // Struct for command line arguments
+constexpr int MUTATION_RATE{5};     // in percentages
+constexpr int MIGRANT_COUNT{3};     // how many migrants are included in a migration
+constexpr int PARENT_GROUP_SIZE{8}; // the group size from which we will seek the most fit
+                                    // parents to make a child to the new generation
 
 std::vector<City> city_locations;
 
@@ -186,75 +184,6 @@ void run_one_generation(
     std::swap(new_generation[0], new_generation[best_index]);
 }
 
-std::vector<int> get_best_routes(const std::vector<int> &route_distances, int n)
-{
-    int actual_n = std::min(n, static_cast<int>(route_distances.size()));
-    std::vector<int> indices(route_distances.size());
-    std::iota(indices.begin(), indices.end(), 0);
-
-    std::partial_sort(indices.begin(), indices.begin() + actual_n, indices.end(),
-                      [&route_distances](int a, int b)
-                      {
-                          return route_distances[a] < route_distances[b];
-                      });
-
-    indices.resize(actual_n);
-    return indices;
-}
-
-std::vector<int> get_worst_routes(const std::vector<int> &route_distances, int n)
-{
-    int actual_n = std::min(n, static_cast<int>(route_distances.size()));
-    std::vector<int> indices(route_distances.size());
-    std::iota(indices.begin(), indices.end(), 0);
-
-    std::partial_sort(indices.begin(), indices.begin() + actual_n, indices.end(),
-                      [&route_distances](int a, int b)
-                      {
-                          return route_distances[a] > route_distances[b];
-                      });
-
-    indices.resize(actual_n);
-    return indices;
-}
-
-void execute_migration(
-    std::vector<std::vector<int>> &current_generation,
-    MigrationStruct &migration_routes, // shared data routes between threads with a flag to avoid data race
-    int thread_id)
-{
-    auto route_distances = get_route_distances(current_generation);
-    
-    int write_index{thread_id == migration_routes.thread_count - 1 ? 0 : thread_id + 1};
-
-    int send_count = migration_routes.routes[write_index].size();
-    int receive_count = migration_routes.routes[thread_id].size();
-    auto best_route_indexes = get_best_routes(route_distances, send_count);
-    auto worst_route_indexes = get_worst_routes(route_distances, receive_count);
-
-
-    // Send best routes to adjacent thread
-    migration_routes.fresh_data_flags[write_index].wait(true);
-    for (int i{0}; i < best_route_indexes.size(); i++)
-    {
-        migration_routes.routes[write_index][i] = current_generation[best_route_indexes[i]];
-    }
-    migration_routes.fresh_data_flags[write_index] = true;
-    migration_routes.fresh_data_flags[write_index].notify_one();
-
-    // Receive best routes from the adjacent thread
-    migration_routes.fresh_data_flags[thread_id].wait(false);
-    for (int i{0}; i < worst_route_indexes.size(); i++)
-    {
-        if (worst_route_indexes[i] != 0)
-        {
-            current_generation[worst_route_indexes[i]] = migration_routes.routes[thread_id][i];
-        }
-    }
-    migration_routes.fresh_data_flags[thread_id] = false;
-    migration_routes.fresh_data_flags[thread_id].notify_one();
-}
-
 void tsp_solver(std::vector<std::vector<int>> &current_generation, MigrationStruct &migration_routes, int thread_id)
 {
     std::random_device rd;
@@ -289,30 +218,22 @@ int main(int argc, char *argv[])
     for (int i{0}; i < ARGS.threads; i++)
     {
         int previous_index = i == 0 ? ARGS.threads - 1 : i - 1;
-        migration_routes.routes[i].resize(std::min({
-            static_cast<std::size_t>(MIGRANT_COUNT),
-            partitioned_population[i].size(),
-            partitioned_population[previous_index].size()}));
+        migration_routes.routes[i].resize(std::min({static_cast<std::size_t>(MIGRANT_COUNT),
+                                                    partitioned_population[i].size(),
+                                                    partitioned_population[previous_index].size()}));
     }
 
     for (int i{0}; i < ARGS.threads; i++)
     {
-        threads.emplace_back(tsp_solver, std::ref(partitioned_population[i]), std::ref(migration_routes), i);
+        threads.emplace_back([&, i]()
+                             { tsp_solver(partitioned_population[i], migration_routes, i); });
     }
     for (auto &thread : threads)
     {
         thread.join();
     }
 
-    for (const auto &sub_pop : partitioned_population)
-    {
-        std::cout << "\nNew_gorup:\n";
-        for (const auto &path : sub_pop)
-        {
-            print_vector(path);
-            std::cout << ", distance: " << calc_route_distance(path) << "\n";
-        }
-    }
+    print_global_champion(partitioned_population);
 
     return 0;
 }

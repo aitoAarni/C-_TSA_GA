@@ -52,11 +52,6 @@ Args parse_args(int, char *argv[], Args&);
 
 std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std::vector<int>> &population, int population_size, int thread_count);
 
-struct MigrationStruct
-{
+int calc_route_distance(const std::vector<int> &route);
 
-    int thread_count;
-    std::unique_ptr<std::atomic<bool>[]> fresh_data_flags;
-    std::vector<std::vector<std::vector<int>>> routes;
-    MigrationStruct(int thread_c) : thread_count(thread_c), fresh_data_flags(std::make_unique<std::atomic<bool>[]>(thread_c)), routes(thread_c) {}
-};
+void print_global_champion(const std::vector<std::vector<std::vector<int>>>& partitioned_population);
