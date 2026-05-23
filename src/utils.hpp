@@ -8,6 +8,10 @@
 #include <atomic>
 #include <memory>
 #include <string>
+#include <random>
+#include <numeric>
+#include <algorithm>
+
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec)
@@ -55,3 +59,5 @@ std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std:
 int calc_route_distance(const std::vector<int> &route);
 
 void print_global_champion(const std::vector<std::vector<std::vector<int>>>& partitioned_population);
+
+std::vector<std::vector<int>> generate_population(const int city_count, const int path_count);

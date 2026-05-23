@@ -18,23 +18,8 @@ constexpr int PARENT_GROUP_SIZE{8}; // the group size from which we will seek th
 
 std::vector<City> city_locations;
 
-std::vector<std::vector<int>> generate_population(const int city_count, const int path_count)
-{
-    std::vector<int> base_route(city_count);
-    std::iota(base_route.begin(), base_route.end(), 0);
-    std::random_device rd;
-    std::mt19937 gen(rd());
 
-    std::vector<std::vector<int>> population(path_count);
-    for (int i{0}; i < path_count; i++)
-    {
-        auto new_route = base_route;
-        std::shuffle(new_route.begin(), new_route.end(), gen);
-        population[i] = new_route;
-    }
-    return population;
-}
-
+// Calculates the distance of 2 cities from each other
 int calc_city_distance(const City &a, const City &b)
 {
     int x = a.x - b.x;
@@ -42,6 +27,7 @@ int calc_city_distance(const City &a, const City &b)
     return std::sqrt(x * x + y * y);
 }
 
+// Calculates the whole route, visiting each node once (and coming back to the first node)
 int calc_route_distance(const std::vector<int> &route)
 {
 
@@ -56,6 +42,7 @@ int calc_route_distance(const std::vector<int> &route)
     return distance;
 }
 
+// Generates offspring from 2 parents
 std::vector<int> reproduce(std::vector<int> &parent_a, std::vector<int> &parent_b, std::mt19937 &gen)
 {
     std::vector<bool> visited(parent_a.size(), false);
@@ -81,6 +68,7 @@ std::vector<int> reproduce(std::vector<int> &parent_a, std::vector<int> &parent_
         {
             child[i] = parent_a[i];
         }
+        // if both cities have been visited, we just pick the first city that hasn't been visited
         else
         {
             for (int city = 0; city < child.size(); ++city)
@@ -97,6 +85,7 @@ std::vector<int> reproduce(std::vector<int> &parent_a, std::vector<int> &parent_
     return child;
 }
 
+// This function creates a parent pool, chooses 2 parents from it and then returns their offspring
 std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation, std::vector<int> &route_distances, std::mt19937 &gen)
 {
     std::size_t population_size{current_generation.size()};
@@ -109,7 +98,7 @@ std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation
     for (int j{0}; j < PARENT_GROUP_SIZE; j++)
     {
         unsigned long index{};
-        // make sure potential parent's are not all the same index
+        // make sure potential parents are not all the same index
         do
         {
             index = parent_dist(gen);
@@ -124,6 +113,8 @@ std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation
     int parent_1 = parent_pool[0];
     int parent_2{};
     int i{0};
+
+    // make sure parents are not the same index
     do
     {
         i++;
@@ -133,6 +124,7 @@ std::vector<int> get_offspring(std::vector<std::vector<int>> &current_generation
     return reproduce(current_generation[parent_1], current_generation[parent_2], gen);
 }
 
+// A function to perform a mutation on a route
 void mutate(std::vector<int> &route, std::uniform_int_distribution<int> &index_distribution, std::mt19937 &gen)
 {
     int i_1 = index_distribution(gen);
@@ -145,6 +137,9 @@ void mutate(std::vector<int> &route, std::uniform_int_distribution<int> &index_d
     std::swap(route[i_1], route[i_2]);
 }
 
+
+// Returns a vector of distance for a vector or routes
+// Each distance is mapped to the same index as the route in its own vector
 std::vector<int> get_route_distances(std::vector<std::vector<int>> &current_generation)
 {
     std::vector<int> route_distances;
@@ -155,6 +150,8 @@ std::vector<int> get_route_distances(std::vector<std::vector<int>> &current_gene
     }
     return route_distances;
 }
+
+// Runs one generation of the algorithm
 void run_one_generation(
     std::vector<std::vector<int>> &current_generation,
     std::vector<std::vector<int>> &new_generation,
@@ -185,6 +182,8 @@ void run_one_generation(
     std::swap(new_generation[0], new_generation[best_index]);
 }
 
+// The algorithm is run with this function
+// This function can be run on multiple threads independently
 void tsp_solver(std::vector<std::vector<int>> &current_generation, MigrationStruct &migration_routes, int thread_id)
 {
     std::random_device rd;
@@ -201,6 +200,7 @@ void tsp_solver(std::vector<std::vector<int>> &current_generation, MigrationStru
         std::swap(current_generation, new_generation);
     }
 }
+
 
 int main(int argc, char *argv[])
 {

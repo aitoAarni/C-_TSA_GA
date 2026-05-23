@@ -6,6 +6,7 @@
 
 std::vector<int> get_route_distances(std::vector<std::vector<int>> &current_generation);
 
+// Lock-free struct for shared data when doing migrations
 struct MigrationStruct
 {
 
@@ -15,6 +16,7 @@ struct MigrationStruct
     MigrationStruct(int thread_c) : thread_count(thread_c), fresh_data_flags(std::make_unique<std::atomic<bool>[]>(thread_c)), routes(thread_c) {}
 };
 
+// Get indices for the n best routes to be sent to an adjacent thread
 std::vector<int> get_best_routes(const std::vector<int> &route_distances, int n)
 {
     int actual_n = std::min(n, static_cast<int>(route_distances.size()));
@@ -31,6 +33,7 @@ std::vector<int> get_best_routes(const std::vector<int> &route_distances, int n)
     return indices;
 }
 
+// Get indices for the n worst routes to be replaced by an adjacent thread
 std::vector<int> get_worst_routes(const std::vector<int> &route_distances, int n)
 {
     int actual_n = std::min(n, static_cast<int>(route_distances.size()));
@@ -47,6 +50,7 @@ std::vector<int> get_worst_routes(const std::vector<int> &route_distances, int n
     return indices;
 }
 
+// The migration orchestrator function
 void execute_migration(
     std::vector<std::vector<int>> &current_generation,
     MigrationStruct &migration_routes, // shared data routes between threads with a flag to avoid data race
@@ -75,6 +79,7 @@ void execute_migration(
     migration_routes.fresh_data_flags[thread_id].wait(false);
     for (int i{0}; i < worst_route_indexes.size(); i++)
     {
+        // don't replace thread's best route
         if (worst_route_indexes[i] != 0)
         {
             current_generation[worst_route_indexes[i]] = migration_routes.routes[thread_id][i];

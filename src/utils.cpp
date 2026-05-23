@@ -1,5 +1,6 @@
 #include "utils.hpp"
 
+// For reading the input file
 std::vector<City> read_input(const std::string &filename)
 {
     std::vector<City> cities;
@@ -23,11 +24,13 @@ std::vector<City> read_input(const std::string &filename)
     return cities;
 }
 
+// For easier printing
 std::ostream &operator<<(std::ostream &os, const City &city)
 {
     return os << city.x << " " << city.y;
 }
 
+// Read the user command line arguments
 Args parse_args(int argc, char *argv[], Args& args)
 {
     for (int i{1}; i < argc; i++)
@@ -57,6 +60,25 @@ Args parse_args(int argc, char *argv[], Args& args)
     return args;
 }
 
+// For initial population generation
+std::vector<std::vector<int>> generate_population(const int city_count, const int path_count)
+{
+    std::vector<int> base_route(city_count);
+    std::iota(base_route.begin(), base_route.end(), 0);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::vector<std::vector<int>> population(path_count);
+    for (int i{0}; i < path_count; i++)
+    {
+        auto new_route = base_route;
+        std::shuffle(new_route.begin(), new_route.end(), gen);
+        population[i] = new_route;
+    }
+    return population;
+}
+
+// Partition the population so each thread gets its own population
 std::vector<std::vector<std::vector<int>>> partition_population(std::vector<std::vector<int>> &population, int population_size, int thread_count)
 {
     int partition_size = std::ceil(double(population_size) / thread_count);
