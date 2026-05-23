@@ -235,9 +235,11 @@ int main(int argc, char *argv[])
         thread.join();
     }
     auto end_time = std::chrono::high_resolution_clock::now();
+
     print_global_champion(partitioned_population);
+
     std::chrono::duration<double> elapsed = end_time - start_time;
-    std::cout << "EXECUTION_TIME: " << elapsed.count() << "\n"; 
+    std::cout << "EXECUTION_TIME: " << elapsed.count() << " seconds\n";
 
     return 0;
 }

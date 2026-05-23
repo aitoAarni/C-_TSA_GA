@@ -21,6 +21,6 @@ def save_cities_to_file(cities: list, filename: str = "../run/input.dat"):
 
 
 if __name__ == "__main__":
-    city_count = 9
+    city_count = 200
     cities = generate_cities(city_count)
     save_cities_to_file(cities)
