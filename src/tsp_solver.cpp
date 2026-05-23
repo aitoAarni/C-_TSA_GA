@@ -8,6 +8,7 @@
 #include <thread>
 #include "utils.hpp"
 #include "migration.hpp"
+#include <chrono>
 
 Args ARGS;                          // Struct for command line arguments
 constexpr int MUTATION_RATE{5};     // in percentages
@@ -223,6 +224,7 @@ int main(int argc, char *argv[])
                                                     partitioned_population[previous_index].size()}));
     }
 
+    auto start_time = std::chrono::high_resolution_clock::now();
     for (int i{0}; i < ARGS.threads; i++)
     {
         threads.emplace_back([&, i]()
@@ -232,8 +234,10 @@ int main(int argc, char *argv[])
     {
         thread.join();
     }
-
+    auto end_time = std::chrono::high_resolution_clock::now();
     print_global_champion(partitioned_population);
+    std::chrono::duration<double> elapsed = end_time - start_time;
+    std::cout << "EXECUTION_TIME: " << elapsed.count() << "\n"; 
 
     return 0;
 }
