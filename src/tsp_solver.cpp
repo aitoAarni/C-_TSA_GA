@@ -149,10 +149,18 @@ void mutate(std::vector<int> &route, std::uniform_int_distribution<int> &index_d
     std::swap(route[i_1], route[i_2]);
 }
 
+std::vector<int> get_route_distances(std::vector<std::vector<int>>& current_generation) {
+        std::vector<int> route_distances;
+        route_distances.reserve(current_generation.size());
+        for (const auto &route : current_generation)
+        {
+            route_distances.push_back(calc_route_distance(route));
+        }
+        return route_distances;
+}
 void run_one_generation(
     std::vector<std::vector<int>> &current_generation,
     std::vector<std::vector<int>> &new_generation,
-    std::vector<int> &route_distances,
     std::mt19937 &gen)
 {
     std::bernoulli_distribution mutation_chance(MUTATION_RATE / 100.0);
@@ -161,6 +169,7 @@ void run_one_generation(
     int shortest_route{calc_route_distance(current_generation[0])};
     int best_index{0};
     new_generation[0] = current_generation[0];
+    auto route_distances = get_route_distances(current_generation);
     for (int i{1}; i < current_generation.size(); i++)
     {
         auto child = get_offspring(current_generation, route_distances, gen);
@@ -196,10 +205,10 @@ std::vector<int> shortest_routes(std::vector<int> &route_distances, int n)
 
 void execute_migration(
     std::vector<std::vector<int>> &current_generation,
-    std::vector<int> &route_distances,
     MigrationStruct &migration_routes, // shared data routes between threads with a flag to avoid data race
     int thread_id)
 {
+    auto route_distances = get_route_distances(current_generation);
     auto best_route_indexes = shortest_routes(route_distances, migration_routes.routes.size());
     int write_index{thread_id == migration_routes.thread_count - 1 ? 0 : thread_id + 1};
     int read_index{thread_id == 0 ? migration_routes.thread_count - 1 : thread_id - 1};
@@ -224,6 +233,7 @@ void execute_migration(
     migration_routes.fresh_data_flags[read_index].notify_one();
 }
 
+
 void tsp_solver(std::vector<std::vector<int>> &current_generation, MigrationStruct &migration_routes, int thread_id)
 {
     migration_routes.routes[thread_id].resize(std::min(static_cast<std::size_t>(3), current_generation.size()));
@@ -233,16 +243,10 @@ void tsp_solver(std::vector<std::vector<int>> &current_generation, MigrationStru
     new_generation[0] = current_generation[0];
     for (int i{0}; i < GENERATIONS; i++)
     {
-        std::vector<int> route_distances;
-        route_distances.reserve(current_generation.size());
-        for (const auto &route : current_generation)
-        {
-            route_distances.push_back(calc_route_distance(route));
+        if (i % MIGRATION_FREQUENCY == 0 && i != 0) {
+            execute_migration(current_generation, migration_routes, thread_id);
         }
-        if (i % MIGRATION_FREQUENCY && i != 0) {
-            execute_migration(current_generation, route_distances, migration_routes, thread_id);
-        }
-        run_one_generation(current_generation, new_generation, route_distances, gen);
+        run_one_generation(current_generation, new_generation, gen);
         std::swap(current_generation, new_generation);
     }
 }
